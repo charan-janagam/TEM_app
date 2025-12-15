@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEM - Telugu English Mentor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1>🎓 TEM</h1>
+            <p class="subtitle">Telugu English Mentor</p>
+        </div>
+        <div class="level-badge">
+            <span id="userLevel">Beginner</span>
+            <span class="conversation-count" id="conversationCount">0 chats</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Chat Messages Area -->
+        <div class="chat-container" id="chatContainer">
+            <!-- Welcome Message -->
+            <div class="welcome-message">
+                <h2>👋 Welcome to TEM!</h2>
+                <p>I'm your friendly English learning mentor. I understand Telugu, Tanglish, and English.</p>
+                <div class="feature-cards">
+                    <div class="feature-card">
+                        <span class="emoji">💬</span>
+                        <p>Practice conversation</p>
+                    </div>
+                    <div class="feature-card">
+                        <span class="emoji">✍️</span>
+                        <p>Grammar correction</p>
+                    </div>
+                    <div class="feature-card">
+                        <span class="emoji">🎯</span>
+                        <p>Real-life examples</p>
+                    </div>
+                </div>
+                <p class="start-hint">Start by typing or speaking in Telugu or English below! 👇</p>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-container">
+            <!-- Voice Recording Indicator -->
+            <div class="recording-indicator" id="recordingIndicator">
+                <span class="pulse"></span>
+                <span>Listening...</span>
+            </div>
+
+            <!-- Input Row -->
+            <div class="input-row">
+                <!-- Voice Button -->
+                <button class="voice-btn" id="voiceBtn" title="Click to speak">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </button>
+
+                <!-- Text Input -->
+                <input 
+                    type="text" 
+                    id="messageInput" 
+                    placeholder="Type in Telugu, Tanglish, or English..."
+                    autocomplete="off"
+                >
+
+                <!-- Send Button -->
+                <button class="send-btn" id="sendBtn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="quick-actions">
+                <button class="quick-btn" onclick="sendQuickMessage('Help me practice English conversation')">
+                    💬 Practice
+                </button>
+                <button class="quick-btn" onclick="sendQuickMessage('Correct my English mistakes')">
+                    ✍️ Corrections
+                </button>
+                <button class="quick-btn" onclick="sendQuickMessage('Give me a daily conversation topic')">
+                    📝 Daily Topic
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Button -->
+    <button class="settings-btn" id="settingsBtn" title="Settings">
+        ⚙️
+    </button>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button class="close-btn" onclick="closeSettings()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="voiceResponseToggle" checked>
+                        Enable voice responses
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="autoScrollToggle" checked>
+                        Auto-scroll to new messages
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <button class="danger-btn" onclick="clearHistory()">
+                        🗑️ Clear Chat History
+                    </button>
+                </div>
+                <div class="setting-item stats">
+                    <h4>📊 Your Progress</h4>
+                    <p>Level: <strong id="modalLevel">Beginner</strong></p>
+                    <p>Total Conversations: <strong id="modalCount">0</strong></p>
+                    <p id="motivationalText" class="motivational">Keep practicing! 🌟</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>TEM is thinking...</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
