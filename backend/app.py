@@ -1,6 +1,6 @@
 """
 Telugu English Mentor (TEM) - Backend API
-Single-model OpenRouter integration (GPT OSS 120B)
+Single-model OpenRouter integration (Trinity Mini - FREE)
 """
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -20,7 +20,8 @@ db = Database()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-MODEL_ID = "openai/gpt-oss-120b:free"
+# ✅ STABLE FREE MODEL
+MODEL_ID = "arcee-ai/trinity-mini:free"
 
 # -------------------- System Prompt --------------------
 SYSTEM_PROMPT = """
@@ -29,10 +30,10 @@ You are TEM (Telugu English Mentor), a friendly and patient English mentor.
 Rules:
 - Understand Telugu, Tanglish, and broken English
 - Respond mainly in simple, natural English
-- Use Telugu only if absolutely needed
+- Use Telugu only when absolutely needed
 - Correct mistakes politely with examples
 - Encourage and motivate the learner
-- Sound human, not robotic
+- Sound like a kind human teacher, not a robot
 """
 
 # -------------------- OpenRouter Call --------------------
@@ -49,7 +50,8 @@ def call_openrouter(messages):
 
     payload = {
         "model": MODEL_ID,
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+        "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + messages,
+        "temperature": 0.7
     }
 
     try:
@@ -57,7 +59,7 @@ def call_openrouter(messages):
             OPENROUTER_API_URL,
             headers=headers,
             json=payload,
-            timeout=40
+            timeout=30
         )
 
         if res.status_code != 200:
