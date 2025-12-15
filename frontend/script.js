@@ -1,6 +1,6 @@
 /**
  * TEM Frontend JavaScript
- * FULLY HANDLED: Voice Input + Voice Output
+ * FIXED: Mic + Voice Output (stable)
  */
 
 // ================= CONFIG =================
@@ -25,8 +25,7 @@ let voiceResponseEnabled = true;
 let autoScrollEnabled = true;
 
 // ================= SPEECH =================
-let recognition;
-let isRecording = false;
+let recognition = null;
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", () => {
@@ -59,57 +58,54 @@ function setupEvents() {
   };
 }
 
-// ================= VOICE INPUT =================
+// ================= MIC (FIXED) =================
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
   if (!SR) {
+    alert("Mic not supported. Please use Chrome.");
     voiceBtn.style.display = "none";
     return;
   }
 
   recognition = new SR();
+  recognition.lang = "en-IN"; // 🔒 FORCE STABLE LANGUAGE
   recognition.continuous = false;
   recognition.interimResults = false;
-  recognition.lang = "en-IN";
+
+  recognition.onstart = () => {
+    voiceBtn.classList.add("recording");
+    recordingIndicator.classList.add("active");
+  };
 
   recognition.onresult = (e) => {
     messageInput.value = e.results[0][0].transcript;
-    stopRecording();
-    sendMessage(); // auto-send after speaking
+    recognition.stop();
+    sendMessage();
   };
 
-  recognition.onerror = () => stopRecording();
-  recognition.onend = () => stopRecording();
+  recognition.onerror = (e) => {
+    alert("Mic error: " + e.error);
+    recognition.stop();
+  };
+
+  recognition.onend = () => {
+    voiceBtn.classList.remove("recording");
+    recordingIndicator.classList.remove("active");
+  };
 }
 
 function toggleVoice() {
-  if (!recognition) return;
-
-  isRecording ? stopRecording() : startRecording();
-}
-
-function startRecording() {
-  isRecording = true;
-  voiceBtn.classList.add("recording");
-  recordingIndicator.classList.add("active");
-
-  recognition.lang = detectTelugu(messageInput.value) ? "te-IN" : "en-IN";
+  if (!recognition) {
+    alert("Mic not ready");
+    return;
+  }
 
   try {
     recognition.start();
   } catch {
-    stopRecording();
+    alert("Mic blocked. Allow microphone permission.");
   }
-}
-
-function stopRecording() {
-  isRecording = false;
-  voiceBtn.classList.remove("recording");
-  recordingIndicator.classList.remove("active");
-
-  try {
-    recognition.stop();
-  } catch {}
 }
 
 // ================= SEND MESSAGE =================
@@ -137,7 +133,7 @@ async function sendMessage() {
     if (voiceResponseEnabled) speak(data.response);
 
   } catch {
-    addMessage("ai", "Sorry, something went wrong. Please try again.");
+    addMessage("ai", "Sorry, something went wrong.");
   } finally {
     showLoading(false);
   }
@@ -175,15 +171,11 @@ function speak(text) {
   speechSynthesis.cancel();
 
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = detectTelugu(text) ? "te-IN" : "en-IN";
+  u.lang = "en-IN";
   u.rate = 0.95;
   u.pitch = 1;
 
   speechSynthesis.speak(u);
-}
-
-function detectTelugu(text) {
-  return /[\u0C00-\u0C7F]/.test(text);
 }
 
 // ================= STATS =================
@@ -220,4 +212,4 @@ function loadSettings() {
 
   document.getElementById("autoScrollToggle").onchange = e =>
     localStorage.setItem("tem_auto_scroll", e.target.checked);
-      }
+    }
