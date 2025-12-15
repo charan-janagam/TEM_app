@@ -1,431 +1,223 @@
 /**
  * TEM Frontend JavaScript
- * Handles UI interactions, API calls, and speech features
+ * FULLY HANDLED: Voice Input + Voice Output
  */
 
-// Configuration
+// ================= CONFIG =================
 const API_BASE_URL = window.location.origin;
-const USER_ID = localStorage.getItem('tem_user_id') || generateUserId();
+const USER_ID = localStorage.getItem("tem_user_id") || generateUserId();
+localStorage.setItem("tem_user_id", USER_ID);
 
-// Save user ID
-localStorage.setItem('tem_user_id', USER_ID);
+// ================= DOM =================
+const chatContainer = document.getElementById("chatContainer");
+const messageInput = document.getElementById("messageInput");
+const sendBtn = document.getElementById("sendBtn");
+const voiceBtn = document.getElementById("voiceBtn");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsModal = document.getElementById("settingsModal");
+const recordingIndicator = document.getElementById("recordingIndicator");
+const loadingOverlay = document.getElementById("loadingOverlay");
+const userLevelEl = document.getElementById("userLevel");
+const conversationCountEl = document.getElementById("conversationCount");
 
-// DOM Elements
-const chatContainer = document.getElementById('chatContainer');
-const messageInput = document.getElementById('messageInput');
-const sendBtn = document.getElementById('sendBtn');
-const voiceBtn = document.getElementById('voiceBtn');
-const settingsBtn = document.getElementById('settingsBtn');
-const settingsModal = document.getElementById('settingsModal');
-const recordingIndicator = document.getElementById('recordingIndicator');
-const loadingOverlay = document.getElementById('loadingOverlay');
-const userLevelEl = document.getElementById('userLevel');
-const conversationCountEl = document.getElementById('conversationCount');
-
-// Settings
+// ================= SETTINGS =================
 let voiceResponseEnabled = true;
 let autoScrollEnabled = true;
 
-// Speech Recognition
-let recognition = null;
+// ================= SPEECH =================
+let recognition;
 let isRecording = false;
 
-// Initialize app
-document.addEventListener('DOMContentLoaded', () => {
-    initializeSpeechRecognition();
-    loadUserStats();
-    loadSettings();
-    setupEventListeners();
+// ================= INIT =================
+document.addEventListener("DOMContentLoaded", () => {
+  initSpeechRecognition();
+  loadUserStats();
+  loadSettings();
+  setupEvents();
 });
 
-/**
- * Generate unique user ID
- */
+// ================= HELPERS =================
 function generateUserId() {
-    return 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  return "user_" + Date.now() + "_" + Math.random().toString(36).slice(2);
 }
 
-/**
- * Setup event listeners
- */
-function setupEventListeners() {
-    // Send message on button click
-    sendBtn.addEventListener('click', sendMessage);
+function setupEvents() {
+  sendBtn.onclick = sendMessage;
 
-    // Send message on Enter key
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-
-    // Voice button
-    voiceBtn.addEventListener('click', toggleVoiceRecording);
-
-    // Settings button
-    settingsBtn.addEventListener('click', openSettings);
-
-    // Close modal on background click
-    settingsModal.addEventListener('click', (e) => {
-        if (e.target === settingsModal) {
-            closeSettings();
-        }
-    });
-}
-
-/**
- * Initialize Web Speech API for voice input
- */
-function initializeSpeechRecognition() {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
-        
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'te-IN'; // Telugu language
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            messageInput.value = transcript;
-            stopRecording();
-        };
-
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            stopRecording();
-            if (event.error === 'no-speech') {
-                showNotification('No speech detected. Please try again.', 'warning');
-            } else {
-                showNotification('Voice recognition error. Please try again.', 'error');
-            }
-        };
-
-        recognition.onend = () => {
-            stopRecording();
-        };
-    } else {
-        console.warn('Speech recognition not supported');
-        voiceBtn.style.display = 'none';
+  messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
+  });
+
+  voiceBtn.onclick = toggleVoice;
+  settingsBtn.onclick = () => settingsModal.classList.add("active");
+
+  settingsModal.onclick = (e) => {
+    if (e.target === settingsModal) settingsModal.classList.remove("active");
+  };
 }
 
-/**
- * Toggle voice recording
- */
-function toggleVoiceRecording() {
-    if (!recognition) {
-        showNotification('Voice input not supported in this browser', 'error');
-        return;
-    }
+// ================= VOICE INPUT =================
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    voiceBtn.style.display = "none";
+    return;
+  }
 
-    if (isRecording) {
-        stopRecording();
-    } else {
-        startRecording();
-    }
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = "en-IN";
+
+  recognition.onresult = (e) => {
+    messageInput.value = e.results[0][0].transcript;
+    stopRecording();
+    sendMessage(); // auto-send after speaking
+  };
+
+  recognition.onerror = () => stopRecording();
+  recognition.onend = () => stopRecording();
 }
 
-/**
- * Start voice recording
- */
+function toggleVoice() {
+  if (!recognition) return;
+
+  isRecording ? stopRecording() : startRecording();
+}
+
 function startRecording() {
-    isRecording = true;
-    voiceBtn.classList.add('recording');
-    recordingIndicator.classList.add('active');
-    
-    try {
-        recognition.start();
-    } catch (error) {
-        console.error('Error starting recognition:', error);
-        stopRecording();
-    }
+  isRecording = true;
+  voiceBtn.classList.add("recording");
+  recordingIndicator.classList.add("active");
+
+  recognition.lang = detectTelugu(messageInput.value) ? "te-IN" : "en-IN";
+
+  try {
+    recognition.start();
+  } catch {
+    stopRecording();
+  }
 }
 
-/**
- * Stop voice recording
- */
 function stopRecording() {
-    isRecording = false;
-    voiceBtn.classList.remove('recording');
-    recordingIndicator.classList.remove('active');
-    
-    if (recognition) {
-        try {
-            recognition.stop();
-        } catch (error) {
-            console.error('Error stopping recognition:', error);
-        }
-    }
+  isRecording = false;
+  voiceBtn.classList.remove("recording");
+  recordingIndicator.classList.remove("active");
+
+  try {
+    recognition.stop();
+  } catch {}
 }
 
-/**
- * Send message to API
- */
+// ================= SEND MESSAGE =================
 async function sendMessage() {
-    const message = messageInput.value.trim();
-    
-    if (!message) {
-        showNotification('Please type or speak a message', 'warning');
-        return;
-    }
+  const text = messageInput.value.trim();
+  if (!text) return;
 
-    // Clear input
-    messageInput.value = '';
+  messageInput.value = "";
+  addMessage("user", text);
+  showLoading(true);
 
-    // Add user message to chat
-    addMessageToChat('user', message);
-
-    // Show loading
-    showLoading(true);
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/chat`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: message,
-                user_id: USER_ID
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.error) {
-            throw new Error(data.message || 'Failed to get response');
-        }
-
-        // Add AI response to chat
-        addMessageToChat('ai', data.response);
-
-        // Update user stats
-        updateUserStats(data.level, data.conversation_count);
-
-        // Speak response if enabled
-        if (voiceResponseEnabled) {
-            speakText(data.response);
-        }
-
-    } catch (error) {
-        console.error('Error sending message:', error);
-        showNotification('Failed to send message: ' + error.message, 'error');
-        
-        // Add error message to chat
-        addMessageToChat('ai', 'Sorry, I encountered an error. Please check if the API key is configured correctly and try again.');
-    } finally {
-        showLoading(false);
-    }
-}
-
-/**
- * Send quick message
- */
-function sendQuickMessage(message) {
-    messageInput.value = message;
-    sendMessage();
-}
-
-/**
- * Add message to chat UI
- */
-function addMessageToChat(sender, text) {
-    // Remove welcome message if exists
-    const welcomeMsg = document.querySelector('.welcome-message');
-    if (welcomeMsg) {
-        welcomeMsg.remove();
-    }
-
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${sender}-message`;
-
-    const time = new Date().toLocaleTimeString('en-IN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, user_id: USER_ID }),
     });
 
-    const senderName = sender === 'user' ? 'You' : 'TEM';
-    const senderEmoji = sender === 'user' ? '👤' : '🎓';
+    const data = await res.json();
+    if (data.error) throw new Error(data.message);
 
-    messageDiv.innerHTML = `
-        <div class="message-header">
-            <span class="message-sender">${senderEmoji} ${senderName}</span>
-            <span class="message-time">${time}</span>
-        </div>
-        <div class="message-content">${escapeHtml(text)}</div>
-    `;
+    addMessage("ai", data.response);
+    updateUserStats(data.level, data.conversation_count);
 
-    chatContainer.appendChild(messageDiv);
+    if (voiceResponseEnabled) speak(data.response);
 
-    // Auto scroll to bottom
-    if (autoScrollEnabled) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
+  } catch {
+    addMessage("ai", "Sorry, something went wrong. Please try again.");
+  } finally {
+    showLoading(false);
+  }
 }
 
-/**
- * Escape HTML to prevent XSS
- */
+// ================= CHAT UI =================
+function addMessage(sender, text) {
+  document.querySelector(".welcome-message")?.remove();
+
+  const div = document.createElement("div");
+  div.className = `message ${sender}-message`;
+
+  div.innerHTML = `
+    <div class="message-header">
+      <span>${sender === "user" ? "👤 You" : "🎓 TEM"}</span>
+      <span>${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+    </div>
+    <div class="message-content">${escapeHtml(text)}</div>
+  `;
+
+  chatContainer.appendChild(div);
+  if (autoScrollEnabled) chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML.replace(/\n/g, '<br>');
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML.replace(/\n/g, "<br>");
 }
 
-/**
- * Text-to-Speech for AI responses
- */
-function speakText(text) {
-    if ('speechSynthesis' in window) {
-        // Cancel any ongoing speech
-        window.speechSynthesis.cancel();
+// ================= VOICE OUTPUT =================
+function speak(text) {
+  if (!window.speechSynthesis) return;
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-IN';
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
+  speechSynthesis.cancel();
 
-        window.speechSynthesis.speak(utterance);
-    }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = detectTelugu(text) ? "te-IN" : "en-IN";
+  u.rate = 0.95;
+  u.pitch = 1;
+
+  speechSynthesis.speak(u);
 }
 
-/**
- * Load user statistics
- */
+function detectTelugu(text) {
+  return /[\u0C00-\u0C7F]/.test(text);
+}
+
+// ================= STATS =================
 async function loadUserStats() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/stats?user_id=${USER_ID}`);
-        const data = await response.json();
-
-        if (!data.error) {
-            updateUserStats(data.level, data.conversation_count);
-        }
-    } catch (error) {
-        console.error('Error loading stats:', error);
-    }
+  try {
+    const r = await fetch(`${API_BASE_URL}/api/stats?user_id=${USER_ID}`);
+    const d = await r.json();
+    if (!d.error) updateUserStats(d.level, d.conversation_count);
+  } catch {}
 }
 
-/**
- * Update user statistics in UI
- */
 function updateUserStats(level, count) {
-    userLevelEl.textContent = level;
-    conversationCountEl.textContent = `${count} chats`;
-
-    // Update in modal too
-    document.getElementById('modalLevel').textContent = level;
-    document.getElementById('modalCount').textContent = count;
+  userLevelEl.textContent = level;
+  conversationCountEl.textContent = `${count} chats`;
+  document.getElementById("modalLevel").textContent = level;
+  document.getElementById("modalCount").textContent = count;
 }
 
-/**
- * Show loading overlay
- */
-function showLoading(show) {
-    if (show) {
-        loadingOverlay.classList.add('active');
-    } else {
-        loadingOverlay.classList.remove('active');
-    }
+// ================= UI HELPERS =================
+function showLoading(v) {
+  loadingOverlay.classList.toggle("active", v);
 }
 
-/**
- * Show notification
- */
-function showNotification(message, type = 'info') {
-    // Simple alert for now - can be enhanced with custom notification UI
-    alert(message);
-}
-
-/**
- * Open settings modal
- */
-function openSettings() {
-    settingsModal.classList.add('active');
-    loadUserStats(); // Refresh stats
-}
-
-/**
- * Close settings modal
- */
-function closeSettings() {
-    settingsModal.classList.remove('active');
-}
-
-/**
- * Load settings from localStorage
- */
+// ================= SETTINGS =================
 function loadSettings() {
-    const savedVoiceResponse = localStorage.getItem('tem_voice_response');
-    const savedAutoScroll = localStorage.getItem('tem_auto_scroll');
+  voiceResponseEnabled = localStorage.getItem("tem_voice_response") !== "false";
+  autoScrollEnabled = localStorage.getItem("tem_auto_scroll") !== "false";
 
-    if (savedVoiceResponse !== null) {
-        voiceResponseEnabled = savedVoiceResponse === 'true';
-        document.getElementById('voiceResponseToggle').checked = voiceResponseEnabled;
-    }
+  document.getElementById("voiceResponseToggle").checked = voiceResponseEnabled;
+  document.getElementById("autoScrollToggle").checked = autoScrollEnabled;
 
-    if (savedAutoScroll !== null) {
-        autoScrollEnabled = savedAutoScroll === 'true';
-        document.getElementById('autoScrollToggle').checked = autoScrollEnabled;
-    }
+  document.getElementById("voiceResponseToggle").onchange = e =>
+    localStorage.setItem("tem_voice_response", e.target.checked);
 
-    // Setup change listeners
-    document.getElementById('voiceResponseToggle').addEventListener('change', (e) => {
-        voiceResponseEnabled = e.target.checked;
-        localStorage.setItem('tem_voice_response', voiceResponseEnabled);
-    });
-
-    document.getElementById('autoScrollToggle').addEventListener('change', (e) => {
-        autoScrollEnabled = e.target.checked;
-        localStorage.setItem('tem_auto_scroll', autoScrollEnabled);
-    });
-}
-
-/**
- * Clear chat history
- */
-async function clearHistory() {
-    const confirmed = confirm('Are you sure you want to clear all your chat history? This cannot be undone.');
-    
-    if (!confirmed) return;
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/clear_history`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                user_id: USER_ID
-            })
-        });
-
-        const data = await response.json();
-
-        if (!data.error) {
-            // Clear chat UI
-            chatContainer.innerHTML = `
-                <div class="welcome-message">
-                    <h2>👋 Welcome back!</h2>
-                    <p>Your chat history has been cleared. Let's start fresh!</p>
-                    <p class="start-hint">Type or speak to begin! 👇</p>
-                </div>
-            `;
-
-            // Reset stats
-            updateUserStats('Beginner', 0);
-            
-            showNotification('Chat history cleared successfully!', 'success');
-            closeSettings();
-        }
-    } catch (error) {
-        console.error('Error clearing history:', error);
-        showNotification('Failed to clear history', 'error');
-    }
-}
-
-// Prevent form submission on Enter in input
-messageInput.addEventListener('submit', (e) => {
-    e.preventDefault();
-});
+  document.getElementById("autoScrollToggle").onchange = e =>
+    localStorage.setItem("tem_auto_scroll", e.target.checked);
+      }
